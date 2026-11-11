@@ -1,0 +1,14 @@
+# Dependencies (never committed — a plugin ships no node_modules)
+node_modules/
+
+# Renders and scratch space
+out/
+*.log
+.tmp/
+
+# Editor and OS noise
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

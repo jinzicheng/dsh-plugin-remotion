@@ -1,0 +1,5 @@
+# dsh-plugin-remotion bundle layer: register the agent-facing Remotion tool row.
+# Install with: dsh plugin --profile desktop add file:C:\Users\Lenovo\dsh-plugins\dsh-plugin-remotion
+- insert:
+    - id: tool-remotion
+      name: dsh-plugin-remotion

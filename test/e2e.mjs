@@ -57,7 +57,7 @@ async function call(name, args = {}) {
 }
 
 console.log('registration')
-check('five tools registered', tools.size === 5, [...tools.keys()].join(', '))
+check('six tools registered', tools.size === 6, [...tools.keys()].join(', '))
 check(
   'two skills registered',
   skills.length === 2 && skills.map((s) => s.name).join(',') === 'remotion,video-recipes',
@@ -83,6 +83,18 @@ check('list names BirthRate', list.includes('BirthRate'))
 console.log('\nremotion_renders')
 const renders = await call('remotion_renders')
 check('renders answers', typeof renders === 'string' && renders.length > 0)
+
+const sampleClip = 'C:/Users/Lenovo/Desktop/作业/remotion-kit/public/sample-clip.mp4'
+if (existsSync(sampleClip)) {
+  console.log('\nremotion_scan_video')
+  const scan = await call('remotion_scan_video', { path: sampleClip })
+  console.log(scan.split('\n').map((l) => `  | ${l}`).join('\n'))
+  check('scan reports the duration', scan.includes('9s'))
+  check('scan finds the scene cuts', /scene cuts: 2/.test(scan))
+  check('scan finds the silences', /silences: 2/.test(scan))
+} else {
+  console.log('\nremotion_scan_video — skipped (no public/sample-clip.mp4 in the kit)')
+}
 
 if (WRITE) {
   const id = 'E2eCheck'

@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-remotion",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "DeepSeek Harness plugin: turn this machine into a Remotion video workshop — list, scaffold and render compositions from a single installed kit. · 让 AI 直接用本机 Remotion 出片。",
   "type": "module",
   "main": "lib/index.js",

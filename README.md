@@ -13,6 +13,7 @@ job until the file is on disk.
 | `remotion_status` | kit path, which Node renders, Remotion version, headless browser, every composition |
 | `remotion_list` | compositions with size, fps, length and source file |
 | `remotion_scaffold` | add a composition — blank scene, or a clone of an existing one |
+| `remotion_scan_video` | look inside a raw video: scene cuts, silences, speech stretches, suggested clips |
 | `remotion_render` | render to MP4 or a single still, in a detached process |
 | `remotion_renders` | poll a render job, or list recent ones |
 
@@ -21,7 +22,7 @@ Plus two **skills**:
 | skill | what it is for |
 | --- | --- |
 | `remotion` | the authoring contract: kit layout, the `meta` block, registry, timeline maths, data-video patterns, rendering, and the quirks of this installation |
-| `video-recipes` | production design: storyboard and timings per video type (data animation, title card, vertical short-form, counter, subtitle card, split comparison), the exact sizes and palette the kit uses, and a pre-delivery checklist |
+| `video-recipes` | production design: storyboard and timings per video type (data animation, title card, vertical short-form, counter, subtitle card, split comparison), audio and ducking, cutting real footage from a `remotion_scan_video` report, three transitions, the exact sizes and palette the kit uses, and a pre-delivery checklist |
 
 ## The kit
 

@@ -95,6 +95,116 @@
 - 右侧比左侧晚 6 帧入场 —— 同时出现会被看成一个整体。
 - 两侧用不同强调色（`#4C8DFF` vs `#FF5A5F`），标题字号一致，数值区对齐同一基线。
 
+## 音频（BGM / 配音 / 音效）
+
+素材放 `public/`，取 URL 一律用 `staticFile('x.mp3')`——直接写相对路径在渲染时会 404。
+
+```tsx
+<Audio
+  src={staticFile('bgm.mp3')}
+  trimBefore={0}
+  volume={(f) => interpolate(f, [0, 15, 120, 135], [0, 0.35, 0.35, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  })}
+/>
+```
+
+- `volume` 可以是一个 `(frame) => number` 函数，帧号是**相对所在 `<Sequence>`** 的局部帧，不是全片帧。
+- 淡入淡出就用 `interpolate` 给 `volume` 做曲线，别去切素材。
+- 口播压 BGM：把 BGM 的 `volume` 曲线在语音段压到 `0.15–0.25`，语音结束后回到 `0.35`。
+- 起播点用 `<Sequence from={90}>` 包一层，别用 `trimBefore` 去"跳过"——`trimBefore` 是裁掉素材开头，不是延后起播。
+- 音量上限：`0.35` 已经很响；多个音轨叠加时总和别过 `0.7`，否则渲染出来会削波。
+- 素材带自己的声音时，`<OffthreadVideo muted>` 静音，音轨单独用 `<Audio>` 挂，两件事分开控。
+- 渲染时音频混流由 ffmpeg 完成，`--concurrency` 不影响音轨，也不影响音画同步。
+
+## 实拍剪辑（把用户发来的视频剪出关键部分）
+
+这是本 kit 最重要的一条工作流：**先量，再剪，别猜**。
+
+### 第 1 步：扫描
+
+用 `remotion_scan_video`（或命令行 `node scripts/scan-video.mjs <文件> --pretty`）。它给四样东西：
+
+| 输出 | 含义 | 用途 |
+| --- | --- | --- |
+| `scenes` | 画面突变的时刻 + 差异值 | 找镜头切换，切在镜头上 |
+| `silences` | 静音区间 | 掐掉冷场、喘气、等待 |
+| `speech` | 有声区间（静音的反面） | 口播类按句子切 |
+| `clips` | 建议片段（按场景切点分段） | 直接拿来当剪辑清单 |
+
+阈值怎么调：
+
+- 切得太碎 → `scene_threshold` 调高（0.18 → 0.3）
+- 该切的没切 → 调低（0.18 → 0.1）
+- 长视频嫌慢 → `no_scene: true`，只做音频分析（快 10 倍以上）
+- 口播类：以 `speech` 为准，不要用 `scenes`——说话人动一下就算一次"画面突变"。
+
+**扫描只给时间点，不给语义**。哪些片段"好"必须问用户，或者自己看 still 判断。报告里要明确说"这些是切点，内容我还没看过"。
+
+### 第 2 步：素材落地
+
+把视频复制到 `remotion-kit/public/`，文件名用 ASCII（`interview-01.mp4`），中文名在 `staticFile` 里容易出岔子。
+
+### 第 3 步：拼时间轴
+
+```tsx
+const FPS = 30;
+const cut = (start: number, end: number) => ({
+  trimBefore: Math.round(start * FPS),
+  durationInFrames: Math.round((end - start) * FPS),
+});
+
+<Sequence from={0} durationInFrames={cut(12.4, 18.9).durationInFrames}>
+  <OffthreadVideo
+    src={staticFile('interview-01.mp4')}
+    {...cut(12.4, 18.9)}
+    style={{width: '100%', height: '100%', objectFit: 'cover'}}
+  />
+</Sequence>
+```
+
+- `trimBefore` = 源视频从第几帧开始，`durationInFrames` = 取多少帧。**不是** `startFrom`/`endAt`，那两个在 Remotion 4 已废弃。
+- 每段都要包 `<Sequence from={累计帧数}>`，否则所有片段都从第 0 帧开始叠在一起。
+- 片段之间的缝隙要么用转场填（见下一条），要么留黑——留黑会显得很业余，至少给 6 帧硬切。
+- 素材分辨率低于输出时，`objectFit: 'cover'` 会裁切放大，糊是必然的；这种情况要提前告诉用户。
+
+### 第 4 步：抽查
+
+渲三张 still：第一段开头、一个切点、最后一段结尾。看四件事——画面有没有黑帧、裁切有没有切掉脸、字幕有没有被压住、转场中间是不是同时看到两段。
+
+### 第 5 步：出片
+
+`remotion_render` 出 mp4，然后核对 ffprobe 的时长是否等于所有片段之和。
+
+## 转场（两段重叠，不是两段拼接）
+
+三种够用了，都是"后一段提前 N 帧起播 + 前一段延后 N 帧结束"，重叠区就是转场区。
+
+```tsx
+const FADE = 15; // 0.5s，30fps
+
+// 1) 交叉溶解：透明度 0→1
+<AbsoluteFill style={{opacity: interpolate(frame, [start, start + FADE], [0, 1], {
+  extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.cubic),
+})}}>
+
+// 2) 推拉：后一段从右侧推入
+transform: `translateX(${interpolate(frame, [start, start + FADE], [100, 0], {
+  extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic),
+})}%)`
+
+// 3) 擦除：用 clipPath 从左边揭开
+clipPath: `inset(0 ${interpolate(frame, [start, start + FADE], [100, 0], {
+  extrapolateLeft: 'clamp', extrapolateRight: 'clamp',
+})}% 0 0)`
+```
+
+- 转场长度 12–18 帧（0.4–0.6s）。短于 8 帧看不出来，长于 24 帧显得拖沓。
+- 三种转场在同一个片子里别混着用，选一种。
+- 转场期间两段都在解码，长片里连续十几个转场会明显拖慢渲染——能硬切就硬切。
+- `Easing` 一定要给，线性透明度变化看起来像闪一下。
+
 ## 配色与字体（全 kit 统一，别自创）
 
 - 背景 `linear-gradient(160deg, #05070F, #0A1020 55%, #0C1730)` + 径向光
@@ -106,9 +216,14 @@
 
 1. **先渲 still**：挑入场结束、主体中段、结尾各一帧（`format: "still"`，`frame:` 给具体帧号）。
    看四件事：文字有没有溢出画布、有没有互相遮挡、深色背景上字够不够亮、进度条有没有盖住内容。
-2. **再出 mp4**，然后看 `remotion_renders` 报的 ffprobe 元数据：帧数对不对、时长对不对、
+2. **实拍再补三帧**：每段素材的第一帧、每个切点、最后一段的最后一帧。查：有没有黑帧、
+   `objectFit: cover` 有没有把脸裁掉、转场中间是不是同时看到两段。
+3. **音频单独听**：音量峰值别过 0.7；转场处有没有爆音；配音和画面对不对得上；
+   BGM 有没有盖住人声。
+4. **再出 mp4**，然后看 `remotion_renders` 报的 ffprobe 元数据：帧数对不对、时长对不对、
    尺寸是不是你以为的那个（竖屏最常见的事故就是忘了改 `meta`）。
-3. **报数**：告诉用户文件路径、时长、体积，以及"这一版讲了什么"，不要只说"渲染完成"。
+5. **报数**：告诉用户文件路径、时长、体积，以及"这一版讲了什么"，不要只说"渲染完成"。
+   剪辑类还要说明保留了哪几段、各多少秒、依据是什么（扫描结果还是用户指定）。
 
 ## 六个常见事故
 

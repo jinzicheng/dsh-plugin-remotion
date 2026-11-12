@@ -58,7 +58,11 @@ async function call(name, args = {}) {
 
 console.log('registration')
 check('five tools registered', tools.size === 5, [...tools.keys()].join(', '))
-check('skill registered', skills.length === 1 && skills[0].name === 'remotion')
+check(
+  'two skills registered',
+  skills.length === 2 && skills.map((s) => s.name).join(',') === 'remotion,video-recipes',
+  skills.map((s) => s.name).join(', '),
+)
 check('prompt section registered', promptSections.length === 1)
 check(
   'every tool declares parameters and output',

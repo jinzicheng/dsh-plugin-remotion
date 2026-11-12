@@ -16,9 +16,12 @@ job until the file is on disk.
 | `remotion_render` | render to MP4 or a single still, in a detached process |
 | `remotion_renders` | poll a render job, or list recent ones |
 
-Plus a `remotion` **skill** with the authoring knowledge: the composition
-contract, timeline maths, data-video patterns, and the quirks of this
-installation.
+Plus two **skills**:
+
+| skill | what it is for |
+| --- | --- |
+| `remotion` | the authoring contract: kit layout, the `meta` block, registry, timeline maths, data-video patterns, rendering, and the quirks of this installation |
+| `video-recipes` | production design: storyboard and timings per video type (data animation, title card, vertical short-form, counter, subtitle card, split comparison), the exact sizes and palette the kit uses, and a pre-delivery checklist |
 
 ## The kit
 

@@ -69,6 +69,29 @@ registry knows.
   so `Math.random()` per frame produces different noise in every frame. Use
   Remotion's `random('seed-' + frame)`.
 
+## Sequence lifetimes and Series
+
+A `<Sequence>` with no `durationInFrames` renders until the composition ends. That
+is how two cards end up on screen at once: the first one never stopped. Every
+Sequence in a timed piece must state its own length, and the lengths must add up.
+
+- **`<Series>` is the default.** Its children run one after another, and each
+  `Series.Sequence` still needs `durationInFrames`. Nothing overlaps, so "the
+  previous card has to finish first" is a property of the structure rather than a
+  rule someone has to remember. Nest a Series for the sub-steps inside a card.
+- **`<TransitionSeries>` only when the overlap is the point.** Every transition
+  eats frames from the timeline: N transitions of D frames pull everything after
+  them D frames earlier. With a beat-locked track that is audible — 10 fades of 12
+  frames put the last card 4 seconds ahead of the music. If the audio is the clock,
+  cut on the beat and keep any overlap inside one card.
+- **`premountFor`** mounts a sequence that many frames early, so fonts, layout and
+  data are already resolved when it becomes visible: 30–45 frames on a card, 15–30
+  on a sub-step. Without it the first frame of every card is a fresh re-layout.
+- **Assert the sum.** Keep the card durations in one array, derive the start frames
+  from it, and throw in development when the total differs from
+  `meta.durationInFrames`. A timeline that is a few frames short is invisible; one
+  that is a card short is an accident you only notice in the render.
+
 ## Text, fonts, and Chinese
 
 - System fonts only. A remote webfont is a network request the renderer may not
